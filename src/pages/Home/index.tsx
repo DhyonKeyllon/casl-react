@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useContext } from "react";
 import { fetchTasks, create, removeTask, updateToClosed } from "./services";
 import {
   ActionContainer,
@@ -15,6 +15,7 @@ import {
   Title,
   Id,
 } from "./styles";
+import { Can, GuardContext } from "../../guards/GuardContext";
 
 type Task = {
   id: number;
@@ -23,6 +24,7 @@ type Task = {
 };
 
 export const Home = () => {
+  const ability = useContext(GuardContext);
   const [tasks, setTasks] = React.useState<Task[]>([]);
 
   function refresh() {
@@ -34,6 +36,13 @@ export const Home = () => {
   }, []);
 
   const onRemove = async (id: number) => {
+    const canRemove = ability.can("delete", "Task");
+
+    if (!canRemove) {
+      alert("Você não tem permissão para excluir essa tarefa");
+      return;
+    }
+
     await removeTask(id);
 
     setTasks((prev) => prev.filter((task) => task.id !== id));
@@ -44,7 +53,7 @@ export const Home = () => {
 
     setTasks((prev) => {
       return prev.map((task) =>
-        task.id === id ? { ...task, status: "closed" } : task
+        task.id === id ? { ...task, status: "closed" } : task,
       );
     });
   };
@@ -64,11 +73,12 @@ export const Home = () => {
       <Container>
         <Title>Task Manager</Title>
 
-        <Form onSubmit={onSubmit}>
-          <Input type="text" name="title" required />
-          <NewButton type="submit">Criar nova tarefa</NewButton>
-        </Form>
-
+        <Can I="create" a="Task">
+          <Form onSubmit={onSubmit}>
+            <Input type="text" name="title" required />
+            <NewButton type="submit">Criar nova tarefa</NewButton>
+          </Form>
+        </Can>
         <Divider />
 
         <ListContainer>
@@ -78,13 +88,17 @@ export const Home = () => {
               <p>{task.title}</p>
               <ActionContainer>
                 {task.status === "open" && (
-                  <DoneButton onClick={() => onDone(task.id)}>
-                    Concluir
-                  </DoneButton>
+                  <Can I="update" a="Task">
+                    <DoneButton onClick={() => onDone(task.id)}>
+                      Concluir
+                    </DoneButton>
+                  </Can>
                 )}
-                <RemoveButton onClick={() => onRemove(task.id)}>
-                  Excluir
-                </RemoveButton>
+                <Can I="delete" a="Task">
+                  <RemoveButton onClick={() => onRemove(task.id)}>
+                    Excluir
+                  </RemoveButton>
+                </Can>
               </ActionContainer>
             </ListItem>
           ))}
